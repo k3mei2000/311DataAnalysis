@@ -1,5 +1,6 @@
 from pathlib import Path
 import requests
+from ratelimit import limits, sleep_and_retry
 import pandas as pd
 
 def retrieve_311_tickets(): 
@@ -50,6 +51,9 @@ def receive_opa_account_num_from_row(row, cache):
     cache[address] = opa_account_num
     return opa_account_num
 
+# Prevent calling the AIS api more than 10 times per second.
+@sleep_and_retry
+@limits(calls=10, period=1)
 def receive_opa_account_num_from_address(address):
     if address == "":
         return ""
