@@ -2,6 +2,7 @@ from pathlib import Path
 import requests
 from ratelimit import limits, sleep_and_retry
 import pandas as pd
+from matplotlib import pyplot as plt
 
 def retrieve_311_tickets(): 
     api_base_url = "https://phl.carto.com/api/v2/sql"
@@ -115,13 +116,81 @@ def join_requests_and_violations():
     except FileNotFoundError:
         print("Error: file not found.")
 
+def perform_data_analysis(): 
+    script_location = Path(__file__).resolve().parent
+    cases_file_path = script_location.parent / "data" / "public_cases_fc_2025.csv"
+    joined_file_path = script_location.parent / "data" / "joined.csv"
+    try:
+        cases_df = pd.read_csv(cases_file_path)
+        joined_df = pd.read_csv(joined_file_path)
+
+        # 1. How many service requests since the beginning of the year has 311 associated with "License & Inspections" as the agency_responsible?
+        # We just need to count the number of rows in public_cases_fc_2025.csv.
+        # The query we used already found all service requests in 2025 that have "License & Inspections" as agency_responsible.
+        total_service_requests = len(cases_df)
+        print(f"{total_service_requests} service requests were found with License & Inspections responsible since the beginning of the year 2025.")
+
+        # 2. What percentage of these service requests have not been closed? (i.e. L&I has not finished inspecting them)
+        # We count the number of rows where the status is not "Closed".
+        total_open_service_requests = len(cases_df[cases_df["status"] != "Closed"])
+        open_percentage = total_open_service_requests / total_service_requests * 100
+        print(f"{total_open_service_requests} service requests, or {open_percentage:.2f}%, have not been closed.")
+
+        # 3. What percentage of these service requests have resulted in the issuance of a code violation?
+        # We count the number of distinct service requests in the joined dataset.
+        total_violation_service_requests = joined_df["objectid_x"].nunique()
+        violation_percentage = total_violation_service_requests / total_service_requests * 100
+        print(f"{total_violation_service_requests} service requests, or {violation_percentage:.2f}%, have resulted in the issuance of a code violation.")
+
+        # Create text file with findings
+        output_text_file_path = script_location.parent / "output" / "findings.txt"
+        with open(output_text_file_path, "w") as f:
+            f.write(f"{total_service_requests} service requests were found with License & Inspections responsible since the beginning of the year 2025.\n")
+            f.write(f"{total_open_service_requests} service requests, or {open_percentage:.2f}%, have not been closed.\n")
+            f.write(f"{total_violation_service_requests} service requests, or {violation_percentage:.2f}%, have resulted in the issuance of a code violation.\n")
+
+        # Create data visualization of findings 
+        status_plot_file_path = script_location.parent / "output" / "status.png"
+        open_closed_vis_df = pd.DataFrame({
+            "Status": ["Not Closed", "Closed"],
+            "Percentages": [open_percentage, 100-open_percentage]
+        })
+        open_closed_vis_df.plot(kind="pie", 
+                                y="Percentages", 
+                                title="L&I Service Request Statuses", 
+                                labels=open_closed_vis_df["Status"], 
+                                autopct="%1.1f%%", 
+                                colors=["Red","Blue"], 
+                                legend=None)
+        plt.savefig(status_plot_file_path)
+
+        violation_plot_file_path = script_location.parent / "output" / "violation.png"
+        violation_vis_df = pd.DataFrame({
+            "ViolationStatus": ["Violation Found", "No Violation Found"],
+            "Percentages": [violation_percentage, 100-violation_percentage]
+        })
+        violation_vis_df.plot(kind="pie", 
+                              y="Percentages", 
+                              title="Service Requests Resulting in Violations", 
+                              labels=violation_vis_df["ViolationStatus"], 
+                              autopct="%1.1f%%", 
+                              colors=["Red","Blue"], 
+                              legend=None)
+        plt.savefig(violation_plot_file_path)
+       
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
 
 
 def main():
+    # Data retrieval functions
     retrieve_311_tickets()
     find_opa_account_nums()
     retrieve_violations()
     join_requests_and_violations()
+
+    # Data analysis functions
+    perform_data_analysis() 
 
 if __name__ == "__main__":
     main()
