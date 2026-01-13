@@ -67,9 +67,57 @@ def receive_opa_account_num_from_address(address):
         return json["features"][0]["properties"]["opa_account_num"]
     return ""
 
+def retrieve_violations():
+    api_base_url = "https://phl.carto.com/api/v2/sql"
+    query = """
+    SELECT objectid, opa_account_num, casecreateddate, casestatus, violationnumber, violationcodetitle, violationdate, violationstatus, violationresolutiondate
+    FROM violations
+    WHERE violationdate >= '2025-01-01'
+    """
+
+    query_parameters = {"format": "csv",
+                        "skipfields": "cartodb_id,the_geom,the_geom_webmercator",
+                        "q": query}
+    
+    response = requests.get(api_base_url, params=query_parameters, stream=True)
+
+    script_location = Path(__file__).resolve().parent
+    data_file_path = script_location.parent / "data" / "violations.csv"
+    with open(data_file_path, "wb") as f:
+        for chunk in response.iter_content(chunk_size=1024):
+            if chunk:
+                f.write(chunk)
+
+def join_requests_and_violations():
+    script_location = Path(__file__).resolve().parent
+    service_requests_path = script_location.parent / "data" / "public_cases_fc_2025_opa.csv"
+    violations_path = script_location.parent / "data" / "violations.csv"
+    joined_data_path = script_location.parent / "data" / "joined.csv"
+
+    try:
+        service_requests_df = pd.read_csv(service_requests_path)
+        violations_df = pd.read_csv(violations_path)
+        
+        merged_df = pd.merge(service_requests_df, violations_df, on='opa_account_num', how="inner")
+
+        # make sure datetime columns are converted to datetime format for accurate comparison
+        merged_df["requested_datetime"] = pd.to_datetime(merged_df["requested_datetime"])
+        merged_df["violationdate"] = pd.to_datetime(merged_df["violationdate"])
+
+        # filter dataframe to get rid of rows where violation was created before the service request
+        merged_df = merged_df[merged_df["requested_datetime"] <= merged_df["violationdate"]]  
+
+        merged_df.to_csv(joined_data_path, index=False)
+    except FileNotFoundError:
+        print("Error: file not found.")
+
+
+
 def main():
     retrieve_311_tickets()
     find_opa_account_nums()
+    retrieve_violations()
+    join_requests_and_violations()
 
 if __name__ == "__main__":
     main()
