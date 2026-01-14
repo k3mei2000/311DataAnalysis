@@ -60,7 +60,7 @@ def receive_opa_account_num_from_address(address):
         return ""
     api_base_url = "https://api.phila.gov/ais/v2/search/"
 
-    response = requests.get(api_base_url + address)
+    response = requests.get(api_base_url + str(address))
     if response.status_code != 200:
         return ""
     
