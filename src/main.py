@@ -18,16 +18,21 @@ def retrieve_311_tickets():
                         "skipfields": "cartodb_id,the_geom,the_geom_webmercator",
                         "q": query}
 
+    try:
+        response = requests.get(api_base_url, params=query_parameters, stream=True)
+        response.raise_for_status()
 
-    response = requests.get(api_base_url, params=query_parameters, stream=True)
+        script_location = Path(__file__).resolve().parent
+        data_file_path = script_location.parent / "data" / "public_cases_fc_2025.csv"
+        with open(data_file_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=1024):
+                if chunk:
+                    f.write(chunk)
+    except requests.exceptions.HTTPError as e:
+        print("HTTP error occurred:", e)
+    except requests.exceptions.RequestException as e:
+        print("A request error occurred:", e)
 
-    script_location = Path(__file__).resolve().parent
-    data_file_path = script_location.parent / "data" / "public_cases_fc_2025.csv"
-    with open(data_file_path, "wb") as f:
-        for chunk in response.iter_content(chunk_size=1024):
-            if chunk:
-                f.write(chunk)
-    return None
 
 def find_opa_account_nums():
     script_location = Path(__file__).resolve().parent
@@ -60,17 +65,21 @@ def receive_opa_account_num_from_address(address):
         return ""
     api_base_url = "https://api.phila.gov/ais/v2/search/"
 
-    response = requests.get(api_base_url + str(address))
-    if response.status_code != 200:
+    try:
+        response = requests.get(api_base_url + str(address))
+        response.raise_for_status()
+        
+        json = response.json()
+        if json["search_type"] != "address":
+            return ""
+        
+        if len(json["features"]) >= 1:
+            return json["features"][0]["properties"]["opa_account_num"]
         return ""
-    
-    json = response.json()
-    if json["search_type"] != "address":
-        return ""
-    
-    if len(json["features"]) >= 1:
-        return json["features"][0]["properties"]["opa_account_num"]
-    return ""
+    except requests.exceptions.HTTPError as e:
+        print("HTTP error occurred:", e)
+    except requests.exceptions.RequestException as e:
+        print("A request error occurred:", e)
 
 def retrieve_violations():
     api_base_url = "https://phl.carto.com/api/v2/sql"
@@ -84,14 +93,20 @@ def retrieve_violations():
                         "skipfields": "cartodb_id,the_geom,the_geom_webmercator",
                         "q": query}
     
-    response = requests.get(api_base_url, params=query_parameters, stream=True)
+    try:
+        response = requests.get(api_base_url, params=query_parameters, stream=True)
+        response.raise_for_status()
 
-    script_location = Path(__file__).resolve().parent
-    data_file_path = script_location.parent / "data" / "violations.csv"
-    with open(data_file_path, "wb") as f:
-        for chunk in response.iter_content(chunk_size=1024):
-            if chunk:
-                f.write(chunk)
+        script_location = Path(__file__).resolve().parent
+        data_file_path = script_location.parent / "data" / "violations.csv"
+        with open(data_file_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=1024):
+                if chunk:
+                    f.write(chunk)
+    except requests.exceptions.HTTPError as e:
+        print("HTTP error occurred:", e)
+    except requests.exceptions.RequestException as e:
+        print("A request error occurred:", e)
 
 def join_requests_and_violations():
     script_location = Path(__file__).resolve().parent
