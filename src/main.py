@@ -128,24 +128,21 @@ def perform_data_analysis():
         # We just need to count the number of rows in public_cases_fc_2025.csv.
         # The query we used already found all service requests in 2025 that have "License & Inspections" as agency_responsible.
         total_service_requests = len(cases_df)
-        print(f"{total_service_requests} service requests were found with License & Inspections responsible since the beginning of the year 2025.")
 
         # 2. What percentage of these service requests have not been closed? (i.e. L&I has not finished inspecting them)
         # We count the number of rows where the status is not "Closed".
         total_open_service_requests = len(cases_df[cases_df["status"] != "Closed"])
         open_percentage = total_open_service_requests / total_service_requests * 100
-        print(f"{total_open_service_requests} service requests, or {open_percentage:.2f}%, have not been closed.")
 
         # 3. What percentage of these service requests have resulted in the issuance of a code violation?
         # We count the number of distinct service requests in the joined dataset.
         total_violation_service_requests = joined_df["objectid_x"].nunique()
         violation_percentage = total_violation_service_requests / total_service_requests * 100
-        print(f"{total_violation_service_requests} service requests, or {violation_percentage:.2f}%, have resulted in the issuance of a code violation.")
 
         # Create text file with findings
         output_text_file_path = script_location.parent / "output" / "findings.txt"
         with open(output_text_file_path, "w") as f:
-            f.write(f"{total_service_requests} service requests were found with License & Inspections responsible since the beginning of the year 2025.\n")
+            f.write(f"{total_service_requests} service requests were found with License & Inspections responsible for the year 2025.\n")
             f.write(f"{total_open_service_requests} service requests, or {open_percentage:.2f}%, have not been closed.\n")
             f.write(f"{total_violation_service_requests} service requests, or {violation_percentage:.2f}%, have resulted in the issuance of a code violation.\n")
 
