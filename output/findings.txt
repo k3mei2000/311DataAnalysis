@@ -1,0 +1,3 @@
+45656 service requests were found with License & Inspections responsible for the year 2025.
+18374 service requests, or 40.24%, have not been closed.
+21542 service requests, or 47.18%, have resulted in the issuance of a code violation.
